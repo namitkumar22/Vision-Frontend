@@ -86,7 +86,7 @@ export default function DashboardPage() {
 
       <div className="dashboard-grid">
         {/* Left Column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px", minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px", minWidth: 0, overflow: "hidden" }}>
 
           {/* Status Overview Card */}
           <div className="glass animate-fade-up delay-100" style={{ padding: "24px", background: "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(6,182,212,0.04) 100%)", position: "relative", overflow: "hidden" }}>
@@ -116,7 +116,7 @@ export default function DashboardPage() {
                       {new Date(latestScan.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  <p style={{ fontSize: "13px", color: "var(--vision-text-muted)", lineHeight: 1.6, marginBottom: "12px" }}>
+                  <p style={{ fontSize: "13px", color: "var(--vision-text-muted)", lineHeight: 1.6, marginBottom: "12px", wordBreak: "break-word", overflowWrap: "anywhere" }}>
                     {latestScan.description}
                   </p>
                   <Link href={`/result/${latestScan.scan_uuid}`} style={{ fontSize: "13px", fontWeight: 600, color: "var(--vision-primary)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>
@@ -160,7 +160,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px", minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px", minWidth: 0, overflow: "hidden" }}>
 
           {/* Action Panel */}
           <div className="glass animate-fade-up delay-400" style={{ padding: "20px" }}>

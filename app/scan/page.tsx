@@ -2,11 +2,13 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, CheckCircle2, Loader2, X, RefreshCw, Eye, AlertCircle } from "lucide-react";
+import { Camera, CheckCircle2, X, RefreshCw, Eye, AlertCircle, Upload, ImagePlus } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 
 const REQUIRED_IMAGES = 8;
+
+type InputMode = "camera" | "upload";
 
 type ScanState = "intro" | "capturing" | "uploading" | "processing" | "done" | "error";
 
@@ -16,8 +18,10 @@ export default function ScanPage() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [state, setState] = useState<ScanState>("intro");
+  const [inputMode, setInputMode] = useState<InputMode>("camera");
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
@@ -86,9 +90,40 @@ export default function ScanPage() {
     URL.revokeObjectURL(previews[i]);
     setImages((prev) => prev.filter((_, idx) => idx !== i));
     setPreviews((prev) => prev.filter((_, idx) => idx !== i));
-    if (images.length === REQUIRED_IMAGES) {
+    if (images.length === REQUIRED_IMAGES && inputMode === "camera") {
        startCamera();
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Accept exactly REQUIRED_IMAGES; if user selected more, slice to 8
+    const selected = files.slice(0, REQUIRED_IMAGES);
+
+    if (selected.length < REQUIRED_IMAGES) {
+      setError(`Please select exactly ${REQUIRED_IMAGES} images. You selected ${selected.length}.`);
+      // Reset the input so user can try again
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setError("");
+    // Revoke any existing preview URLs
+    previews.forEach((url) => URL.revokeObjectURL(url));
+
+    const newPreviews = selected.map((f) => URL.createObjectURL(f));
+    setImages(selected);
+    setPreviews(newPreviews);
+    setState("capturing"); // reuse capturing state to show the review grid
+  };
+
+  const openUploadMode = () => {
+    setInputMode("upload");
+    setState("capturing");
+    // Trigger file picker immediately
+    setTimeout(() => fileInputRef.current?.click(), 50);
   };
 
   const upload = async () => {
@@ -262,7 +297,7 @@ export default function ScanPage() {
       {/* Instructions */}
       {state === "intro" && (
         <div className="glass animate-fade-up" style={{ padding: "20px", marginBottom: "20px", opacity: 0, background: "rgba(99,102,241,0.06)", borderColor: "rgba(99,102,241,0.2)" }}>
-          <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "flex-start", marginBottom: "20px" }}>
             <Eye size={18} color="var(--vision-primary)" style={{ flexShrink: 0, marginTop: "2px" }} />
             <div>
               <div style={{ fontSize: "14px", fontWeight: 700, marginBottom: "6px" }}>Before you start</div>
@@ -274,27 +309,88 @@ export default function ScanPage() {
               </ul>
             </div>
           </div>
-          
-          <button className="btn btn-primary" style={{ width: "100%", marginTop: "20px" }} onClick={startCamera}>
-            <Camera size={16} /> Open Camera
-          </button>
+
+          {/* Two action buttons */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <button
+              className="btn btn-primary"
+              style={{ width: "100%" }}
+              onClick={() => { setInputMode("camera"); startCamera(); }}
+            >
+              <Camera size={16} /> Camera
+            </button>
+
+            <button
+              className="btn btn-secondary"
+              style={{
+                width: "100%",
+                background: "rgba(167,139,250,0.12)",
+                border: "1px solid rgba(167,139,250,0.3)",
+                color: "var(--vision-violet)",
+              }}
+              onClick={openUploadMode}
+            >
+              <Upload size={16} /> Upload
+            </button>
+          </div>
+
+          <p style={{ fontSize: "11px", color: "var(--vision-text-faint)", textAlign: "center", marginTop: "12px" }}>
+            No fundus camera? Upload {REQUIRED_IMAGES} retinal images from your gallery.
+          </p>
         </div>
       )}
+
+      {/* Hidden file input for gallery upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleFileUpload}
+      />
       
-      {state === "capturing" && images.length < REQUIRED_IMAGES && (
+      {/* Camera viewfinder — only in camera mode when still capturing */}
+      {state === "capturing" && inputMode === "camera" && images.length < REQUIRED_IMAGES && (
         <div style={{ marginBottom: "20px", position: "relative", borderRadius: "14px", overflow: "hidden", background: "#000", aspectRatio: "4/3" }}>
-          <video 
-            ref={videoRef} 
-            autoPlay 
-            playsInline 
-            muted 
-            style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
           <div style={{ position: "absolute", bottom: "16px", left: 0, right: 0, display: "flex", justifyContent: "center" }}>
-             <button onClick={captureFrame} style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(255,255,255,0.2)", border: "4px solid white", cursor: "pointer", backdropFilter: "blur(4px)" }} />
+            <button onClick={captureFrame} style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(255,255,255,0.2)", border: "4px solid white", cursor: "pointer", backdropFilter: "blur(4px)" }} />
           </div>
           <div style={{ position: "absolute", top: "16px", left: "16px", background: "rgba(0,0,0,0.6)", padding: "4px 12px", borderRadius: "20px", color: "white", fontSize: "12px", fontWeight: 700 }}>
-             {images.length} / {REQUIRED_IMAGES}
+            {images.length} / {REQUIRED_IMAGES}
+          </div>
+        </div>
+      )}
+
+      {/* Upload mode — prompt to pick files when no images yet */}
+      {state === "capturing" && inputMode === "upload" && images.length === 0 && (
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            marginBottom: "20px",
+            padding: "40px 20px",
+            borderRadius: "14px",
+            border: "2px dashed rgba(167,139,250,0.35)",
+            background: "rgba(167,139,250,0.06)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "12px",
+            cursor: "pointer",
+            transition: "border-color 0.2s, background 0.2s",
+          }}
+        >
+          <ImagePlus size={36} color="var(--vision-violet)" />
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "15px", fontWeight: 700, color: "var(--vision-violet)" }}>Select {REQUIRED_IMAGES} Images</div>
+            <div style={{ fontSize: "13px", color: "var(--vision-text-muted)", marginTop: "4px" }}>Tap to open gallery</div>
           </div>
         </div>
       )}
@@ -362,6 +458,28 @@ export default function ScanPage() {
         ))}
       </div>
 
+      {/* Analyze button when all images are ready (upload mode) */}
+      {state === "capturing" && inputMode === "upload" && images.length === REQUIRED_IMAGES && (
+        <button
+          className="btn btn-primary"
+          style={{ width: "100%", marginBottom: "16px" }}
+          onClick={upload}
+        >
+          <Eye size={16} /> Run AI Analysis
+        </button>
+      )}
+
+      {/* Re-pick button in upload mode */}
+      {state === "capturing" && inputMode === "upload" && images.length > 0 && images.length < REQUIRED_IMAGES && (
+        <button
+          className="btn btn-ghost"
+          style={{ width: "100%", marginBottom: "16px" }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload size={16} /> Re-select Images
+        </button>
+      )}
+
       {/* Error */}
       {(error || state === "error") && (
         <div style={{ display: "flex", gap: "10px", padding: "12px 16px", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "10px", fontSize: "13px", color: "#ef4444", marginBottom: "16px", alignItems: "flex-start" }}>
@@ -369,11 +487,11 @@ export default function ScanPage() {
           {error || "An error occurred. Please try again."}
         </div>
       )}
-      
+
       {state === "error" && (
-          <button className="btn btn-ghost" onClick={() => { setState("intro"); setError(""); }}>
-            <RefreshCw size={16} /> Try Again
-          </button>
+        <button className="btn btn-ghost" onClick={() => { setState("intro"); setError(""); setImages([]); setPreviews([]); }}>
+          <RefreshCw size={16} /> Try Again
+        </button>
       )}
     </div>
   );

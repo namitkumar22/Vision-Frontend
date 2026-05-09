@@ -482,6 +482,7 @@ body::before {
 /* Mobile-first: main content — full width with safe padding */
 .main-content {
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
   flex: 1;
@@ -497,6 +498,15 @@ body::before {
   display: grid;
   grid-template-columns: 1fr;
   gap: 20px;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Every direct child of the grid must not exceed its track */
+.dashboard-grid > * {
+  min-width: 0;
+  overflow: hidden;
 }
 
 @media (min-width: 1024px) {
@@ -506,9 +516,14 @@ body::before {
   .main-content {
     margin-left: 260px;
     padding: 40px;
-    max-width: calc(1400px + 260px);
+    /* max-width relative to full viewport so right column can't overflow */
+    max-width: 1280px;
+    box-sizing: border-box;
   }
-  .dashboard-grid { grid-template-columns: 2fr 1fr; gap: 24px; }
+  .dashboard-grid {
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+  }
 }
 
 /* ── Responsive Utilities ──────────────────────────── */
